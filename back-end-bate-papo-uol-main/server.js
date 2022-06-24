@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import {Db, MongoClient, ObjectId} from 'mongodb'
 import axios from 'axios'
+import Joi from 'joi'
 import dotenv from 'dotenv'
 
 const server = express();
@@ -52,5 +53,30 @@ server.get('/participants', async(request, response)=>{
     const loginArray = await db.collection('login').find().toArray()
 
     response.send(loginArray)
+})
+
+server.post('/messages', async (request, response)=>{
+    const mensagem = request.body
+    const { user } = request.header
+
+    console.log(mensagem , user)
+
+
+    const messageValidation = Joi.object({
+    from: Joi.string().required,
+    to: Joi.string().required(),
+    text: Joi.string().required(),
+    type:Joi.string().required()
+})
+
+    const dataMensagem =  {from: user,...mensagem}
+
+    const validation = messageValidation.validate(dataMensagem)
+
+    const inputMessage = await db.collection("mensagem").insertOne({dataMensagem})
+
+
+    response.send(dataMensagem)
+
 })
 server.listen(5000)
