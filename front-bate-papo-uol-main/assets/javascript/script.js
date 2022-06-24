@@ -1,3 +1,5 @@
+import axios from 'axios'
+
 let mensagens = [];
 let participantes = [];
 let nome;
