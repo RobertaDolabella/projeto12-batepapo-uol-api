@@ -2,11 +2,11 @@
   "name": "projeto12-batepapo-uol-api",
   "version": "1.0.0",
   "description": "",
-  "main": "index.rsjs",
+  "main": "index.js",
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon ./back-end-bate-papo-uol-main/server.js"
+    "start": "nodemon ./back-end-bate-papo-uol-main/src/server.js"
   },
   "keywords": [],
   "author": "",

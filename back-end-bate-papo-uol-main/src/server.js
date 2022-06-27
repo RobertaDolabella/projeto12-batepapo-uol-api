@@ -5,19 +5,20 @@ import Joi from 'joi'
 import dotenv from 'dotenv'
 import dayjs from 'dayjs'
 
-const server = express();
-
-server.use(express.json());
-server.use(cors());
-
 dotenv.config();
-console.log(process.env)
-const client = new MongoClient(`${process.env.URL_MONGO}`)
+
+const client = new MongoClient(process.env.URL_CONNECT_MONGO)
 // const client = new MongoClient('mongodb://127.0.0.1:27017')
 let db;
 client.connect().then(() => {
     db = client.db('uol')
 })
+
+const server = express();
+
+server.use(express.json());
+server.use(cors());
+
 
 
 server.post('/participants', async (request, response) => {
