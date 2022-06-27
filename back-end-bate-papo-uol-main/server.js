@@ -127,9 +127,11 @@ server.post('/status', async (request, response)=>{
 
     if(statusList.some(userOn=>userOn.name===user)){
         db.collection('status').updateOne({"name":user}, { $set: { "lastStatus" : Date.now() } })
+        response.sendStatus(200)
     }
     else{
         db.collection('status').insertOne(dataStatus)
+        response.sendStatus(200)
     }
 })
 server.listen(5000)
