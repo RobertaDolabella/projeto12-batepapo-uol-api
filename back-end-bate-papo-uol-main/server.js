@@ -5,6 +5,7 @@ import axios from 'axios'
 import Joi from 'joi'
 import dotenv from 'dotenv'
 import dayjs from 'dayjs'
+import { request } from 'express'
 
 const server = express();
 
@@ -19,34 +20,35 @@ client.connect().then(() => {
     db = client.db('uol')
 })
 
-let newName;
+
 server.post('/participants', async (request, response) => {
-    newName = request.body
+
+    const { name } = request.body
 
     const loginArray = await db.collection('login').find().toArray()
 
-    if (!newName) {
+    if (!name) {
         response.sendStatus(422)
         return
     }
-    if (loginArray.some((login) => login.name === newName.name)) {
+    if (loginArray.some((login) => login.name === name)) {
         response.sendStatus(409)
         return
     }
 
     const dataLogin = {
-        name: newName.name,
+        name: name,
         lastStatus: Date.now()
     }
     db.collection('login').insertOne(dataLogin).then(() => {
         response.sendStatus(201)
     })
     const dataStatus = {
-        from: newName,
+        from: name,
         to: 'Todos',
         text: 'entra na sala...',
         type: 'status',
-        time: new Date().getTime()
+        time: dayjs().format('hh:mm:ss')
     }
     db.collection('mensagens').insertOne(dataStatus)
 })
@@ -58,21 +60,19 @@ server.get('/participants', async (request, response) => {
 })
 
 server.post('/messages', async (request, response) => {
+
     const mensagem = request.body
     const { user } = request.headers
-
-    console.log(mensagem, user)
-
 
     const messageValidation = Joi.object({
         from: Joi.string().required,
         to: Joi.string().required(),
         text: Joi.string().required(),
-        type: Joi.string().required(),
+        type: Joi.string().valid('message','private_message'),
         time: Joi.required()
     })
 
-    const dataMensagem = { from:user , ...mensagem, time: dayjs().format('HH:MM:ss') }
+    const dataMensagem = { from:user , ...mensagem, time: dayjs().format('hh:mm:ss') }
 
     const validation = messageValidation.validate(dataMensagem)
 
@@ -84,7 +84,7 @@ server.post('/messages', async (request, response) => {
 })
 
 server.get('/messages', async (request, response) => {
-
+  
     const { user } = request.headers
 
     const findMessages = await db.collection("mensagens").find().toArray()
@@ -93,6 +93,7 @@ server.get('/messages', async (request, response) => {
     const limit = parseInt(request.query.limit)
 
     if (limit) {
+
         if (filteredMessages.length > limit) {
             let splice = filteredMessages.length - limit
             const limitedMessages = filteredMessages.splice(splice, limit)
@@ -100,7 +101,8 @@ server.get('/messages', async (request, response) => {
             return
         }
         else{
-            response.send(filteredMessages)
+            response.status(201).send(filteredMessages)
+            return
         }
     }
         response.send(filteredMessages)
@@ -125,7 +127,7 @@ server.post('/status', async (request, response)=>{
     }
 
     if(statusList.some(userOn=>userOn.name===user)){
-        await db.collection('status').updateOne({"name":user}, { $set: { "lastStatus" : Date.now() } })
+        await db.collection('status').updateOne({name :user}, { $set: {lastStatus : Date.now() } })
         response.sendStatus(200)
     }
     else{
@@ -134,22 +136,50 @@ server.post('/status', async (request, response)=>{
     }
 })
 
+server.delete('/messages/:ID_DA_MENSAGEM', async (request, response)=>{
+    const { user } = request.headers
+    console.log("entrou no delete")
+    const idMessage = request.params.ID_DA_MENSAGEM
+
+    console.log(idMessage)
+
+    const messageList = await db.collection("mensagens").find({_id: ObjectId(idMessage)}).toArray()
+
+    console.log(messageList)
+    if(!messageList){
+        response.sendStatus(404)
+        return
+    }
+    if(messageList[0].from !== user){
+        response.sendStatus(401)
+        return
+    }
+    else{
+        db.collection("mensagens").deleteOne({_id: ObjectId(idMessage)})
+        response.send(messageList)
+        return
+    }
+
+    })
+
 setInterval(async function () {
 
     const statusList = await db.collection('status').find().toArray()
 
-    const statusOut = statusList.filter(time=> time.lastStatus< Date.now()-10)
+    const statusOut = statusList.filter(time=> time.lastStatus< Date.now()-10000)
 
     statusOut.forEach(userOut=>{
         const messageOut = {from: userOut.name,
          to: 'Todos', 
          text: 'sai da sala...', 
          type: 'status', 
-         time: dayjs().format('HH:MM:ss')}
+         time: dayjs().format('hh:mm:ss')}
 
          db.collection('mensagens').insertOne(messageOut)
 
          db.collection('status').deleteOne(userOut)
     })
-}, 10000);
+}, 15000);
+
+
 server.listen(5000)
