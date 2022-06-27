@@ -76,7 +76,7 @@ server.post('/messages', async (request, response) => {
 
     const validation = messageValidation.validate(dataMensagem)
 
-    const inputMessage = await db.collection("mensagens").insertOne({ dataMensagem })
+    const inputMessage = await db.collection("mensagens").insertOne({...dataMensagem })
 
 
     response.sendStatus(201)
@@ -88,13 +88,12 @@ server.get('/messages', async (request, response) => {
     const { user } = request.headers
 
     const findMessages = await db.collection("mensagens").find().toArray()
-    const filteredMessages = findMessages.filter((message) =>(message.dataMensagem.from === user||message.dataMensagem.to==="Todos"||message.dataMensagem.to===user))
+    const filteredMessages = findMessages.filter((message) =>(message.from === user||message.to==="Todos"||message.to===user))
     
     const limit = parseInt(request.query.limit)
 
     if (limit) {
         if (filteredMessages.length > limit) {
-            console.log("entrou no limit")
             let splice = filteredMessages.length - limit
             const limitedMessages = filteredMessages.splice(splice, limit)
             response.send(limitedMessages)
@@ -126,12 +125,31 @@ server.post('/status', async (request, response)=>{
     }
 
     if(statusList.some(userOn=>userOn.name===user)){
-        db.collection('status').updateOne({"name":user}, { $set: { "lastStatus" : Date.now() } })
+        await db.collection('status').updateOne({"name":user}, { $set: { "lastStatus" : Date.now() } })
         response.sendStatus(200)
     }
     else{
-        db.collection('status').insertOne(dataStatus)
+        await db.collection('status').insertOne(dataStatus)
         response.sendStatus(200)
     }
 })
+
+setInterval(async function () {
+
+    const statusList = await db.collection('status').find().toArray()
+
+    const statusOut = statusList.filter(time=> time.lastStatus< Date.now()-10)
+
+    statusOut.forEach(userOut=>{
+        const messageOut = {from: userOut.name,
+         to: 'Todos', 
+         text: 'sai da sala...', 
+         type: 'status', 
+         time: dayjs().format('HH:MM:ss')}
+
+         db.collection('mensagens').insertOne(messageOut)
+
+         db.collection('status').deleteOne(userOut)
+    })
+}, 10000);
 server.listen(5000)
