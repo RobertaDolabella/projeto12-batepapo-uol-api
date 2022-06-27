@@ -1,11 +1,9 @@
 import express from 'express'
 import cors from 'cors'
 import { Db, MongoClient, ObjectId } from 'mongodb'
-import axios from 'axios'
 import Joi from 'joi'
 import dotenv from 'dotenv'
 import dayjs from 'dayjs'
-import { request } from 'express'
 
 const server = express();
 
@@ -13,8 +11,9 @@ server.use(express.json());
 server.use(cors());
 
 dotenv.config();
-
-const client = new MongoClient('mongodb://127.0.0.1:27017')
+console.log(process.env)
+const client = new MongoClient(`${process.env.URL_MONGO}`)
+// const client = new MongoClient('mongodb://127.0.0.1:27017')
 let db;
 client.connect().then(() => {
     db = client.db('uol')
@@ -137,16 +136,14 @@ server.post('/status', async (request, response)=>{
 })
 
 server.delete('/messages/:ID_DA_MENSAGEM', async (request, response)=>{
+
     const { user } = request.headers
-    console.log("entrou no delete")
     const idMessage = request.params.ID_DA_MENSAGEM
 
-    console.log(idMessage)
 
     const messageList = await db.collection("mensagens").find({_id: ObjectId(idMessage)}).toArray()
 
-    console.log(messageList)
-    if(!messageList){
+    if(messageList.length===0){
         response.sendStatus(404)
         return
     }
@@ -161,6 +158,45 @@ server.delete('/messages/:ID_DA_MENSAGEM', async (request, response)=>{
     }
 
     })
+
+server.put('/messages/:ID_DA_MENSAGEM', async (request, response)=>{
+
+    const idMessage = request.params.ID_DA_MENSAGEM
+    const { user } = request.headers
+    const message = request.body
+
+    const messageToFind = await db.collection("mensagens").find({_id: ObjectId(idMessage)}).toArray()
+ 
+    if(messageToFind.length===0){
+        response.sendStatus(404)
+        return
+    }
+
+    if(messageToFind[0].from !== user){
+        response.sendStatus(401)
+    }
+  
+    const messageValidation = Joi.object({
+        from: Joi.string().required(),
+        text: Joi.string().required(),
+        type: Joi.string().valid('message','private_message')
+    })
+try{
+    const messageToChange = { from: user, ...message, time: dayjs().format('hh:mm:ss')}
+    const validation = messageValidation.validate(messageToChange)
+    console.log("validou")
+    const update = await db.collection('mensagens').updateOne({_id: ObjectId(idMessage)}, { $set: {text : message.text} })
+    const messageList = await db.collection("mensagens").find().toArray()
+    response.send(messageList)
+
+}catch(error){
+    response.sendStatus(422)
+}
+
+
+
+   
+})    
 
 setInterval(async function () {
 
